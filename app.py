@@ -1,66 +1,9 @@
 import streamlit as st
+import face_recognition
 import os
-import requests
-import bz2  # Standard Python library to unpack compressed models instantly
 from PIL import Image
 import numpy as np
 import pickle
-import dlib
-
-# --- AUTOMATIC FACE DETECTOR WEIGHTS DOWNLOADER ---
-MODEL_DIR = "models"
-PREDICTOR_PATH = os.path.join(MODEL_DIR, "shape_predictor_68_face_landmarks.dat")
-RECOGNITION_PATH = os.path.join(MODEL_DIR, "dlib_face_recognition_resnet_model_v1.dat")
-
-@st.cache_resource
-def initialize_dlib_models():
-    """Downloads required facial matrix files safely from open direct-link mirrors"""
-    if not os.path.exists(MODEL_DIR):
-        os.makedirs(MODEL_DIR)
-        
-    # Sourced directly from dlib's primary open model repository
-    urls = {
-        PREDICTOR_PATH: "https://raw.githubusercontent.com/davisking/dlib-models/master/shape_predictor_68_face_landmarks.dat.bz2",
-        RECOGNITION_PATH: "https://raw.githubusercontent.com/davisking/dlib-models/master/dlib_face_recognition_resnet_model_v1.dat.bz2"
-    }
-    
-    for path, url in urls.items():
-        if not os.path.exists(path):
-            bz2_path = path + ".bz2"
-            with st.spinner(f"Downloading required AI engine asset: {os.path.basename(path)}..."):
-                try:
-                    headers = {"User-Agent": "Mozilla/5.0"}
-                    response = requests.get(url, headers=headers, stream=True, timeout=60)
-                    
-                    if response.status_code == 200:
-                        # Stream down the compressed file
-                        with open(bz2_path, "wb") as f:
-                            for chunk in response.iter_content(chunk_size=1024 * 1024):
-                                if chunk:
-                                    f.write(chunk)
-                                    
-                        # Decompress it inline instantly
-                        with open(path, "wb") as new_file, bz2.BZ2File(bz2_path, "rb") as decompressed:
-                            for data in iter(lambda: decompressed.read(100 * 1024), b""):
-                                new_file.write(data)
-                                
-                        # Clean up the compressed .bz2 download to save workspace space
-                        if os.path.exists(bz2_path):
-                            os.remove(bz2_path)
-                    else:
-                        st.error(f"Mirror failed: Status code {response.status_code}. Retrying connection...")
-                        st.stop()
-                except Exception as e:
-                    st.error(f"Network error while extracting files: {str(e)}")
-                    st.stop()
-
-    detector = dlib.get_frontal_face_detector()
-    predictor = dlib.shape_predictor(PREDICTOR_PATH)
-    encoder = dlib.face_recognition_model_v1(RECOGNITION_PATH)
-    return detector, predictor, encoder
-
-# Initialize the structural engines securely now that 'st' is defined
-FACE_DETECTOR, POSE_PREDICTOR, FACE_ENCODER = initialize_dlib_models()
 
 EVENT_IMAGES_DIR = "event_images"
 INDEX_FILE = "gallery_index.pkl"
@@ -68,20 +11,8 @@ INDEX_FILE = "gallery_index.pkl"
 st.title("⚡ Ultra-Fast AI Event Photo Finder")
 st.write("Album is permanently indexed for instant, high-accuracy searches.")
 
-def get_face_encodings(img_array):
-    """Calculates high-precision 128D face vectors safely without legacy packaging wrappers"""
-    try:
-        faces = FACE_DETECTOR(img_array, 1)
-        encodings = []
-        for face in faces:
-            shape = POSE_PREDICTOR(img_array, face)
-            encoding = np.array(FACE_ENCODER.compute_face_descriptor(img_array, shape, 1))
-            encodings.append(encoding)
-        return encodings
-    except Exception:
-        return []
-
 def build_permanent_index():
+    """Scans the album folder exactly ONCE and saves the face models to a file"""
     if not os.path.exists(EVENT_IMAGES_DIR):
         return []
         
@@ -92,18 +23,19 @@ def build_permanent_index():
     status_text = st.empty()
     
     for index, img_name in enumerate(all_images):
-        status_text.text(f"Indexing album... processing {index+1}/{len(all_images)}")
+        status_text.text(f"Indexing album for instant access... processing {index+1}/{len(all_images)}")
         img_path = os.path.join(EVENT_IMAGES_DIR, img_name)
         
         try:
             pil_album = Image.open(img_path).convert('RGB')
             album_img = np.array(pil_album, dtype=np.uint8)
-            album_encodings = get_face_encodings(album_img)
+            
+            album_encodings = face_recognition.face_encodings(album_img)
             
             if album_encodings:
                 indexed_data.append({
                     "path": img_path,
-                    "name": img_name,
+                    "name": img_name,  # Saved to use as the download filename
                     "encodings": album_encodings
                 })
         except Exception:
@@ -144,7 +76,7 @@ if picture is not None:
         try:
             pil_selfie = Image.open(picture).convert('RGB')
             selfie_image = np.array(pil_selfie, dtype=np.uint8)
-            selfie_encodings = get_face_encodings(selfie_image)
+            selfie_encodings = face_recognition.face_encodings(selfie_image)
         except Exception as e:
             st.error(f"Error reading selfie: {e}")
             selfie_encodings = []
@@ -159,8 +91,9 @@ if picture is not None:
             
             for item in cached_album:
                 for face_encode in item["encodings"]:
-                    dist = np.linalg.norm(user_face_encoding - face_encode)
-                    if dist <= 0.45:
+                    matches = face_recognition.compare_faces([user_face_encoding], face_encode, tolerance=0.45)
+                    if matches[0]:
+                        # Save both path and name for the download feature
                         matched_photos.append({
                             "path": item["path"],
                             "name": item.get("name", os.path.basename(item["path"]))
@@ -172,8 +105,12 @@ if picture is not None:
             else:
                 st.success(f"Found {len(matched_photos)} matching photos!")
                 
+                # --- NEW: DISPLAY IMAGE + DOWNLOAD BUTTON ---
                 for photo in matched_photos:
+                    # Show preview
                     st.image(photo["path"], use_container_width=True)
+                    
+                    # Read original file bytes to pass to download button
                     try:
                         with open(photo["path"], "rb") as file:
                             file_bytes = file.read()
@@ -183,9 +120,10 @@ if picture is not None:
                             data=file_bytes,
                             file_name=photo["name"],
                             mime="image/jpeg",
-                            key=photo["path"]
+                            key=photo["path"]  # Unique key for Streamlit rendering
                         )
                     except Exception as e:
-                        st.error(f"Could not load download button: {e}")
+                        st.error(f"Could not load download button for this image: {e}")
                     
+                    # Add a visual separator between photos
                     st.markdown("---")
