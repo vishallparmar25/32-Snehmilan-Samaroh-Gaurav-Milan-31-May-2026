@@ -3,5 +3,5 @@ pillow==12.2.0
 requests==2.34.2
 opencv-python-headless
 numpy<2.0.0
-https://github.com/v96/dlib-binaries/raw/main/dlib-19.24.1-cp311-cp311-linux_x86_64.whl
+dlib-bin
 face-recognition==1.3.0
