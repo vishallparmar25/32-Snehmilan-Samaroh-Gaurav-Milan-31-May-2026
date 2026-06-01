@@ -2,4 +2,4 @@ cmake
 g++
 make
 python3-dev
-libgl1-mesa-glx
+libgl1
