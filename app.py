@@ -177,6 +177,13 @@ if picture is not None:
                         try:
                             with open(local_path, "rb") as file:
                                 file_bytes = file.read()
+                            
+                            # Clean, single-line string to eliminate syntax errors
+                            btn_label = f"📥 Download Original Photo ({photo['name']})"
                                 
                             st.download_button(
-                                label=f"
+                                label=btn_label,
+                                data=file_bytes,
+                                file_name=photo["name"],
+                                mime="image/jpeg",
+                                key=local_path
