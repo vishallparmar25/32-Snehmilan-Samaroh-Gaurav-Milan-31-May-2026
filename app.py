@@ -38,8 +38,16 @@ def compare_faces(known_encodings, face_to_check, tolerance=0.45):
 EVENT_IMAGES_DIR = "event_images"
 INDEX_FILE = "gallery_index.pkl"
 
-st.title("⚡ Ultra-Fast AI Event Photo Finder")
+# --- CUSTOM GUJARATI TITLE & SUBTITLE ---
+st.title("શ્રી સતવારા જ્ઞાતિ મંડળ સુરત 32 મો સ્નેહમિલન સમારોહ (ગૌરવ મિલન ) 31 મે 2026")
+st.subheader("⚡ Ultra-Fast AI Event Photo Finder")
 st.write("Album is permanently indexed for instant, high-accuracy searches.")
+
+# --- SIDEBAR CREDITS & CONTROLS ---
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🛠️ Developer Profile")
+st.sidebar.info("🚀 Built with ❤️ by **Vishal Parmar**")
+st.sidebar.markdown("---")
 
 def build_permanent_index():
     """Scans the album folder exactly ONCE and saves the face models to a file"""
