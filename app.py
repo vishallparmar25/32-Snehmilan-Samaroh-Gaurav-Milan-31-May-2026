@@ -1,3 +1,5 @@
+import setuptools  # Forces Streamlit to acknowledge the package presence
+import pkg_resources  # Pre-loads the missing module into container memory
 import streamlit as st
 import os
 from PIL import Image
@@ -114,31 +116,4 @@ if picture is not None:
                     # Euclidean distance check (tolerance=0.45 matches your original setup)
                     dist = np.linalg.norm(user_face_encoding - face_encode)
                     if dist <= 0.45:
-                        matched_photos.append({
-                            "path": item["path"],
-                            "name": item.get("name", os.path.basename(item["path"]))
-                        })
-                        break 
-            
-            if not matched_photos:
-                st.warning("No highly precise matches found of you.")
-            else:
-                st.success(f"Found {len(matched_photos)} matching photos!")
-                
-                for photo in matched_photos:
-                    st.image(photo["path"], use_container_width=True)
-                    try:
-                        with open(photo["path"], "rb") as file:
-                            file_bytes = file.read()
-                            
-                        st.download_button(
-                            label=f"📥 Download Original Photo ({photo['name']})",
-                            data=file_bytes,
-                            file_name=photo["name"],
-                            mime="image/jpeg",
-                            key=photo["path"]
-                        )
-                    except Exception as e:
-                        st.error(f"Could not load download button: {e}")
-                    
-                    st.markdown("---")
+                        matched_photos
