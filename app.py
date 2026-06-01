@@ -13,25 +13,34 @@ RECOGNITION_PATH = os.path.join(MODEL_DIR, "dlib_face_recognition_resnet_model_v
 
 @st.cache_resource
 def initialize_dlib_models():
-    """Downloads required facial matrix files if they aren't already present"""
+    """Downloads required facial matrix files safely from stable CDN paths"""
     if not os.path.exists(MODEL_DIR):
         os.makedirs(MODEL_DIR)
         
+    # Swapped out unstable raw git repositories for stable HuggingFace / public model servers
     urls = {
-        PREDICTOR_PATH: "https://github.com/italojs/facial-landmarks-recognition/raw/master/shape_predictor_68_face_landmarks.dat",
-        RECOGNITION_PATH: "https://github.com/stefanopini/simple-Face-Recognition/raw/master/models/dlib_face_recognition_resnet_model_v1.dat"
+        PREDICTOR_PATH: "https://huggingface.co/public-data/dlib_models/resolve/main/shape_predictor_68_face_landmarks.dat",
+        RECOGNITION_PATH: "https://huggingface.co/public-data/dlib_models/resolve/main/dlib_face_recognition_resnet_model_v1.dat"
     }
     
     for path, url in urls.items():
         if not os.path.exists(path):
             with st.spinner(f"Downloading required AI engine asset: {os.path.basename(path)}..."):
-                response = requests.get(url, stream=True)
-                if response.status_code == 200:
-                    with open(path, "wb") as f:
-                        for chunk in response.iter_content(chunk_size=8192):
-                            f.write(chunk)
-                else:
-                    st.error(f"Failed to fetch model file from source repository.")
+                try:
+                    # Using a standard browser agent header so the server doesn't reject Streamlit Cloud
+                    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+                    response = requests.get(url, headers=headers, stream=True, timeout=60)
+                    
+                    if response.status_code == 200:
+                        with open(path, "wb") as f:
+                            for chunk in response.iter_content(chunk_size=1024 * 1024): # 1MB chunks
+                                if chunk:
+                                    f.write(chunk)
+                    else:
+                        st.error(f"Failed download: Server responded with status code {response.status_code}")
+                        st.stop()
+                except Exception as e:
+                    st.error(f"Network error while fetching models: {str(e)}")
                     st.stop()
 
     detector = dlib.get_frontal_face_detector()
@@ -99,7 +108,7 @@ def build_permanent_index():
         
     return indexed_data
 
-# --- INTLLIGENT INDEX LOADING ---
+# --- INTELLIGENT INDEX LOADING ---
 if os.path.exists(INDEX_FILE):
     with open(INDEX_FILE, "rb") as f:
         cached_album = pickle.load(f)
