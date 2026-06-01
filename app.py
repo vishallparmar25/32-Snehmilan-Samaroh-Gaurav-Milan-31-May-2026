@@ -5,6 +5,7 @@ import numpy as np
 import pickle
 import dlib
 import face_recognition_models
+import cv2
 
 # --- NATIVE DLIB INITIALIZATION (Replaces face_recognition wrapper) ---
 # Load the exact same official models bundled inside face_recognition_models
