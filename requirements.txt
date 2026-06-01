@@ -1,6 +1,5 @@
 streamlit
 pillow
 numpy==1.26.4
-face-recognition-models
-https://github.com/v9v/dlib-wheels/raw/main/dlib-19.24.1-cp311-cp311-linux_x86_64.whl
+dlib==19.24.2
 face_recognition
