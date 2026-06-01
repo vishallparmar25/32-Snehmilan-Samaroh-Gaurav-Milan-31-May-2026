@@ -1,17 +1,46 @@
-import setuptools  # Forces Streamlit to acknowledge the package presence
-import pkg_resources  # Pre-loads the missing module into container memory
 import streamlit as st
 import os
+import requests
 from PIL import Image
 import numpy as np
 import pickle
-import face_recognition_models
 import dlib
 
-# Load the pre-trained face detectors from the models package
-FACE_DETECTOR = dlib.get_frontal_face_detector()
-POSE_PREDICTOR = dlib.shape_predictor(face_recognition_models.face_recognition_model_location())
-FACE_ENCODER = dlib.face_recognition_model_v1(face_recognition_models.face_recognition_model_location())
+# --- AUTOMATIC FACE DETECTOR WEIGHTS DOWNLOADER ---
+MODEL_DIR = "models"
+PREDICTOR_PATH = os.path.join(MODEL_DIR, "shape_predictor_68_face_landmarks.dat")
+RECOGNITION_PATH = os.path.join(MODEL_DIR, "dlib_face_recognition_resnet_model_v1.dat")
+
+@st.cache_resource
+def initialize_dlib_models():
+    """Downloads required facial matrix files if they aren't already present"""
+    if not os.path.exists(MODEL_DIR):
+        os.makedirs(MODEL_DIR)
+        
+    urls = {
+        PREDICTOR_PATH: "https://github.com/italojs/facial-landmarks-recognition/raw/master/shape_predictor_68_face_landmarks.dat",
+        RECOGNITION_PATH: "https://github.com/stefanopini/simple-Face-Recognition/raw/master/models/dlib_face_recognition_resnet_model_v1.dat"
+    }
+    
+    for path, url in urls.items():
+        if not os.path.exists(path):
+            with st.spinner(f"Downloading required AI engine asset: {os.path.basename(path)}..."):
+                response = requests.get(url, stream=True)
+                if response.status_code == 200:
+                    with open(path, "wb") as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                else:
+                    st.error(f"Failed to fetch model file from source repository.")
+                    st.stop()
+
+    detector = dlib.get_frontal_face_detector()
+    predictor = dlib.shape_predictor(PREDICTOR_PATH)
+    encoder = dlib.face_recognition_model_v1(RECOGNITION_PATH)
+    return detector, predictor, encoder
+
+# Initialize the structural engines securely
+FACE_DETECTOR, POSE_PREDICTOR, FACE_ENCODER = initialize_dlib_models()
 
 EVENT_IMAGES_DIR = "event_images"
 INDEX_FILE = "gallery_index.pkl"
@@ -20,13 +49,11 @@ st.title("⚡ Ultra-Fast AI Event Photo Finder")
 st.write("Album is permanently indexed for instant, high-accuracy searches.")
 
 def get_face_encodings(img_array):
-    """Bypasses face_recognition package to calculate face vectors directly using dlib models"""
+    """Calculates high-precision 128D face vectors safely without legacy packaging wrappers"""
     try:
-        # Detect face bounding boxes
         faces = FACE_DETECTOR(img_array, 1)
         encodings = []
         for face in faces:
-            # Get landmarks and generate 128D face vector
             shape = POSE_PREDICTOR(img_array, face)
             encoding = np.array(FACE_ENCODER.compute_face_descriptor(img_array, shape, 1))
             encodings.append(encoding)
@@ -35,7 +62,6 @@ def get_face_encodings(img_array):
         return []
 
 def build_permanent_index():
-    """Scans the album folder exactly ONCE and saves the face models to a file"""
     if not os.path.exists(EVENT_IMAGES_DIR):
         return []
         
@@ -73,7 +99,7 @@ def build_permanent_index():
         
     return indexed_data
 
-# --- INTELLIGENT INDEX LOADING ---
+# --- INTLLIGENT INDEX LOADING ---
 if os.path.exists(INDEX_FILE):
     with open(INDEX_FILE, "rb") as f:
         cached_album = pickle.load(f)
@@ -113,7 +139,33 @@ if picture is not None:
             
             for item in cached_album:
                 for face_encode in item["encodings"]:
-                    # Euclidean distance check (tolerance=0.45 matches your original setup)
                     dist = np.linalg.norm(user_face_encoding - face_encode)
                     if dist <= 0.45:
-                        matched_photos
+                        matched_photos.append({
+                            "path": item["path"],
+                            "name": item.get("name", os.path.basename(item["path"]))
+                        })
+                        break 
+            
+            if not matched_photos:
+                st.warning("No highly precise matches found of you.")
+            else:
+                st.success(f"Found {len(matched_photos)} matching photos!")
+                
+                for photo in matched_photos:
+                    st.image(photo["path"], use_container_width=True)
+                    try:
+                        with open(photo["path"], "rb") as file:
+                            file_bytes = file.read()
+                            
+                        st.download_button(
+                            label=f"📥 Download Original Photo ({photo['name']})",
+                            data=file_bytes,
+                            file_name=photo["name"],
+                            mime="image/jpeg",
+                            key=photo["path"]
+                        )
+                    except Exception as e:
+                        st.error(f"Could not load download button: {e}")
+                    
+                    st.markdown("---")
