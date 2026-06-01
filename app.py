@@ -141,12 +141,17 @@ if picture is not None:
             st.write("Comparing your face against the database...")
             
             for item in cached_album:
-                for face_encode in item["encodings"]:
+                # Safe key retrieval with defaults to prevent KeyError crashes
+                encodings = item.get("encodings", [])
+                item_path = item.get("path", "")
+                item_name = item.get("name", os.path.basename(item_path) if item_path else "photo.jpg")
+                
+                for face_encode in encodings:
                     matches = compare_faces([user_face_encoding], face_encode, tolerance=0.45)
                     if matches[0]:
                         matched_photos.append({
-                            "path": item["path"],
-                            "name": item.get("name", os.path.basename(item["path"]))
+                            "path": item_path,
+                            "name": item_name
                         })
                         break 
             
@@ -156,6 +161,9 @@ if picture is not None:
                 st.success(f"Found {len(matched_photos)} matching photos!")
                 
                 for photo in matched_photos:
+                    if not photo["name"]:
+                        continue
+                        
                     local_path = os.path.join(EVENT_IMAGES_DIR, photo["name"])
                     
                     if not os.path.exists(local_path):
@@ -174,8 +182,6 @@ if picture is not None:
                                 file_bytes = file.read()
                             
                             btn_label = f"📥 Download Original Photo ({photo['name']})"
-                            
-                            # Cleaned up on a completely flat sequence to avoid any hidden or unclosed token issues
                             st.download_button(label=btn_label, data=file_bytes, file_name=photo["name"], mime="image/jpeg", key=local_path)
                         except Exception as e:
                             st.error(f"Could not initialize download button: {e}")
