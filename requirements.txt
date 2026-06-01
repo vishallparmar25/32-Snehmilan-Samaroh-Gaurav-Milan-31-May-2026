@@ -1,5 +1,2 @@
-streamlit
-pillow
-numpy==1.26.4
-https://github.com/v9v/dlib-wheels/releases/download/v19.24.2/dlib-19.24.2-cp311-cp311-linux_x86_64.whl
-face_recognition
+cmake
+dlib==19.24.2
