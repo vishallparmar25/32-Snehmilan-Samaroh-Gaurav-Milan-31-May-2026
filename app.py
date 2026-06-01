@@ -108,7 +108,6 @@ if os.path.exists(INDEX_FILE):
         cached_album = pickle.load(f)
     st.sidebar.success("⚡ Database Loaded! Search will be instant.")
 else:
-    # Safe fallback if you deploy before uploading your generated pkl file
     with st.spinner("Building index engine framework..."):
         cached_album = build_permanent_index()
     st.sidebar.success("✅ Database Active!")
@@ -141,7 +140,6 @@ if picture is not None:
             
             st.write("Comparing your face against the database...")
             
-            # Heavy mathematical matching runs completely locally via .pkl file (Instant execution)
             for item in cached_album:
                 for face_encode in item["encodings"]:
                     matches = compare_faces([user_face_encoding], face_encode, tolerance=0.45)
@@ -157,15 +155,12 @@ if picture is not None:
             else:
                 st.success(f"Found {len(matched_photos)} matching photos!")
                 
-                # Setup folder fallback download context if required on runtime
                 for photo in matched_photos:
                     local_path = os.path.join(EVENT_IMAGES_DIR, photo["name"])
                     
-                    # DYNAMIC ON-DEMAND DOWNLOAD
                     if not os.path.exists(local_path):
                         with st.spinner(f"📥 Pulling original high-quality file: {photo['name']}..."):
                             try:
-                                # Safe fallback: download folder contents only when requested
                                 url = f"https://drive.google.com/drive/folders/{GOOGLE_DRIVE_FOLDER_ID}"
                                 gdown.download_folder(url, output=EVENT_IMAGES_DIR, quiet=True, remaining_ok=True)
                             except Exception as download_error:
@@ -178,12 +173,13 @@ if picture is not None:
                             with open(local_path, "rb") as file:
                                 file_bytes = file.read()
                             
-                            # Clean, single-line string to eliminate syntax errors
                             btn_label = f"📥 Download Original Photo ({photo['name']})"
-                                
-                            st.download_button(
-                                label=btn_label,
-                                data=file_bytes,
-                                file_name=photo["name"],
-                                mime="image/jpeg",
-                                key=local_path
+                            
+                            # Cleaned up on a completely flat sequence to avoid any hidden or unclosed token issues
+                            st.download_button(label=btn_label, data=file_bytes, file_name=photo["name"], mime="image/jpeg", key=local_path)
+                        except Exception as e:
+                            st.error(f"Could not initialize download button: {e}")
+                    else:
+                        st.error(f"Could not render image resource '{photo['name']}'. Please ensure it is still located in your Google Drive folder.")
+                    
+                    st.markdown("---")
