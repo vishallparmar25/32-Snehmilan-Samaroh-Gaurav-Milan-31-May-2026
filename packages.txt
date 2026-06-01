@@ -1,5 +1,1 @@
-cmake
-g++
-make
-python3-dev
 libgl1
