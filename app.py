@@ -4,13 +4,13 @@ from PIL import Image
 import numpy as np
 import pickle
 import dlib
-import face_recognition_models
 import cv2
 
-# --- NATIVE DLIB INITIALIZATION (Replaces face_recognition wrapper) ---
-# Load the exact same official models bundled inside face_recognition_models
-predictor_path = face_recognition_models.pose_predictor_model_location()
-face_rec_path = face_recognition_models.face_recognition_model_location()
+# --- DIRECT MODEL LOADING (Bypasses broken third-party packages) ---
+BASE_VENV_DIR = "/home/adminuser/venv/lib/python3.11/site-packages/face_recognition_models/models"
+
+predictor_path = os.path.join(BASE_VENV_DIR, "shape_predictor_68_face_landmarks.dat")
+face_rec_path = os.path.join(BASE_VENV_DIR, "dlib_face_recognition_resnet_model_v1.dat")
 
 face_detector = dlib.get_frontal_face_detector()
 shape_predictor = dlib.shape_predictor(predictor_path)
@@ -18,8 +18,6 @@ face_encoder = dlib.face_recognition_model_v1(face_rec_path)
 
 def get_face_encodings(img_array):
     """Locates faces and generates 128D encodings matching face_recognition output"""
-    # Convert image to RGB if it isn't already
-    gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY) if len(img_array.shape) == 3 else img_array
     detected_faces = face_detector(img_array, 1)
     
     encodings = []
@@ -30,7 +28,7 @@ def get_face_encodings(img_array):
     return encodings
 
 def compare_faces(known_encodings, face_to_check, tolerance=0.45):
-    """Computes Euclidean distance to find matching faces matching face_recognition.compare_faces"""
+    """Computes Euclidean distance to find matching faces"""
     if len(known_encodings) == 0:
         return [False]
     distances = np.linalg.norm(known_encodings - face_to_check, axis=1)
