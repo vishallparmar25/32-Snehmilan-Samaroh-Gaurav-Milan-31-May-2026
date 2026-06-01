@@ -5,16 +5,42 @@ import numpy as np
 import pickle
 import dlib
 import cv2
+import gdown
 
-# --- DIRECT MODEL LOADING (Bypasses broken third-party packages) ---
+# --- APP CONFIGURATION ---
+EVENT_IMAGES_DIR = "event_images"
+INDEX_FILE = "gallery_index.pkl"
+GOOGLE_DRIVE_FOLDER_ID = "1KaLc9BAAQJqNM7DiHjCYGELqGUbB-HQt"
+
+# --- AUTOMATIC CLOUD STORAGE DOWNLOAD ---
+if not os.path.exists(EVENT_IMAGES_DIR):
+    os.makedirs(EVENT_IMAGES_DIR, exist_ok=True)
+    url = f"https://drive.google.com/drive/folders/{GOOGLE_DRIVE_FOLDER_ID}"
+    with st.spinner("📥 Downloading event gallery from Google Drive... Please wait."):
+        try:
+            # gdown handles folder downloads seamlessly via URL
+            gdown.download_folder(url, output=EVENT_IMAGES_DIR, quiet=True)
+            st.success("🎉 Gallery successfully synced from Google Drive!")
+        except Exception as e:
+            st.error(f"Failed to download gallery from Google Drive: {e}")
+
+# --- DIRECT MODEL LOADING (Optimized with Streamlit Caching) ---
 BASE_VENV_DIR = "/home/adminuser/venv/lib/python3.11/site-packages/face_recognition_models/models"
-
 predictor_path = os.path.join(BASE_VENV_DIR, "shape_predictor_68_face_landmarks.dat")
 face_rec_path = os.path.join(BASE_VENV_DIR, "dlib_face_recognition_resnet_model_v1.dat")
 
-face_detector = dlib.get_frontal_face_detector()
-shape_predictor = dlib.shape_predictor(predictor_path)
-face_encoder = dlib.face_recognition_model_v1(face_rec_path)
+@st.cache_resource
+def load_dlib_models():
+    """Caches the heavy dlib models in memory so they only load ONCE"""
+    detector = dlib.get_frontal_face_detector()
+    predictor = dlib.shape_predictor(predictor_path)
+    encoder = dlib.face_recognition_model_v1(face_rec_path)
+    return detector, predictor, encoder
+
+try:
+    face_detector, shape_predictor, face_encoder = load_dlib_models()
+except Exception as e:
+    st.error(f"Error loading AI models. Path check: {predictor_path}. Error: {e}")
 
 def get_face_encodings(img_array):
     """Locates faces and generates 128D encodings matching face_recognition output"""
@@ -33,10 +59,6 @@ def compare_faces(known_encodings, face_to_check, tolerance=0.45):
         return [False]
     distances = np.linalg.norm(known_encodings - face_to_check, axis=1)
     return list(distances <= tolerance)
-
-# --- APP CONFIGURATION ---
-EVENT_IMAGES_DIR = "event_images"
-INDEX_FILE = "gallery_index.pkl"
 
 # --- CUSTOM GUJARATI TITLE & SUBTITLE ---
 st.title("શ્રી સતવારા જ્ઞાતિ મંડળ સુરત 32 મો સ્નેહમિલન સમારોહ (ગૌરવ મિલન ) 31 મે 2026")
