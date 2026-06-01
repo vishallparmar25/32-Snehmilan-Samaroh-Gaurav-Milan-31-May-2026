@@ -1,15 +1,36 @@
 import streamlit as st
-import face_recognition
 import os
 from PIL import Image
 import numpy as np
 import pickle
+import face_recognition_models
+import dlib
+
+# Load the pre-trained face detectors from the models package
+FACE_DETECTOR = dlib.get_frontal_face_detector()
+POSE_PREDICTOR = dlib.shape_predictor(face_recognition_models.face_recognition_model_location())
+FACE_ENCODER = dlib.face_recognition_model_v1(face_recognition_models.face_recognition_model_location())
 
 EVENT_IMAGES_DIR = "event_images"
 INDEX_FILE = "gallery_index.pkl"
 
 st.title("⚡ Ultra-Fast AI Event Photo Finder")
 st.write("Album is permanently indexed for instant, high-accuracy searches.")
+
+def get_face_encodings(img_array):
+    """Bypasses face_recognition package to calculate face vectors directly using dlib models"""
+    try:
+        # Detect face bounding boxes
+        faces = FACE_DETECTOR(img_array, 1)
+        encodings = []
+        for face in faces:
+            # Get landmarks and generate 128D face vector
+            shape = POSE_PREDICTOR(img_array, face)
+            encoding = np.array(FACE_ENCODER.compute_face_descriptor(img_array, shape, 1))
+            encodings.append(encoding)
+        return encodings
+    except Exception:
+        return []
 
 def build_permanent_index():
     """Scans the album folder exactly ONCE and saves the face models to a file"""
@@ -23,19 +44,18 @@ def build_permanent_index():
     status_text = st.empty()
     
     for index, img_name in enumerate(all_images):
-        status_text.text(f"Indexing album for instant access... processing {index+1}/{len(all_images)}")
+        status_text.text(f"Indexing album... processing {index+1}/{len(all_images)}")
         img_path = os.path.join(EVENT_IMAGES_DIR, img_name)
         
         try:
             pil_album = Image.open(img_path).convert('RGB')
             album_img = np.array(pil_album, dtype=np.uint8)
-            
-            album_encodings = face_recognition.face_encodings(album_img)
+            album_encodings = get_face_encodings(album_img)
             
             if album_encodings:
                 indexed_data.append({
                     "path": img_path,
-                    "name": img_name,  # Saved to use as the download filename
+                    "name": img_name,
                     "encodings": album_encodings
                 })
         except Exception:
@@ -76,7 +96,7 @@ if picture is not None:
         try:
             pil_selfie = Image.open(picture).convert('RGB')
             selfie_image = np.array(pil_selfie, dtype=np.uint8)
-            selfie_encodings = face_recognition.face_encodings(selfie_image)
+            selfie_encodings = get_face_encodings(selfie_image)
         except Exception as e:
             st.error(f"Error reading selfie: {e}")
             selfie_encodings = []
@@ -91,9 +111,9 @@ if picture is not None:
             
             for item in cached_album:
                 for face_encode in item["encodings"]:
-                    matches = face_recognition.compare_faces([user_face_encoding], face_encode, tolerance=0.45)
-                    if matches[0]:
-                        # Save both path and name for the download feature
+                    # Euclidean distance check (tolerance=0.45 matches your original setup)
+                    dist = np.linalg.norm(user_face_encoding - face_encode)
+                    if dist <= 0.45:
                         matched_photos.append({
                             "path": item["path"],
                             "name": item.get("name", os.path.basename(item["path"]))
@@ -105,12 +125,8 @@ if picture is not None:
             else:
                 st.success(f"Found {len(matched_photos)} matching photos!")
                 
-                # --- NEW: DISPLAY IMAGE + DOWNLOAD BUTTON ---
                 for photo in matched_photos:
-                    # Show preview
                     st.image(photo["path"], use_container_width=True)
-                    
-                    # Read original file bytes to pass to download button
                     try:
                         with open(photo["path"], "rb") as file:
                             file_bytes = file.read()
@@ -120,10 +136,9 @@ if picture is not None:
                             data=file_bytes,
                             file_name=photo["name"],
                             mime="image/jpeg",
-                            key=photo["path"]  # Unique key for Streamlit rendering
+                            key=photo["path"]
                         )
                     except Exception as e:
-                        st.error(f"Could not load download button for this image: {e}")
+                        st.error(f"Could not load download button: {e}")
                     
-                    # Add a visual separator between photos
                     st.markdown("---")
