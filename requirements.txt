@@ -1,5 +1,6 @@
-streamlit 
+streamlit
 numpy
 pillow
-dlib-bin
 requests
+cmake
+face_recognition==1.3.0
