@@ -1,3 +1,4 @@
 cmake
 streamlit
+dlib-bin
 face_recognition
