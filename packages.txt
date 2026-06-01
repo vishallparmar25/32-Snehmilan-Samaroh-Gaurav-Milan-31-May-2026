@@ -1,2 +1,0 @@
-python3-dlib
-python3-face-recognition
