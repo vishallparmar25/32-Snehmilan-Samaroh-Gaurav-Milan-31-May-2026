@@ -1,3 +1,4 @@
 streamlit
 numpy
 face_recognition_models
+setuptools
