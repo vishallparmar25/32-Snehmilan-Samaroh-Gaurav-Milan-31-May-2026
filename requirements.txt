@@ -1,6 +1,5 @@
 streamlit 
-numpy 
-face_recognition_models 
-setuptools 
-dlib-bin 
- 
+numpy
+pillow
+dlib-bin
+requests
