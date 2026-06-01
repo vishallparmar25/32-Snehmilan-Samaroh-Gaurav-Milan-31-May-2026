@@ -3,10 +3,20 @@ import cv2
 import numpy as np
 from PIL import Image
 
-st.title("Selfie Face Detection App")
+# Set the Gujarati event title with styling
+st.markdown(
+    """
+    <h2 style='text-align: center; color: #E65100; font-family: sans-serif; margin-bottom: 20px;'>
+        શ્રી સતવારા જ્ઞાતિ મંડળ સુરત <br> 
+        32 મો સ્નેહમિલન સમારોહ (ગૌરવ મિલન) <br> 
+        31 મે 2026
+    </h2>
+    """, 
+    unsafe_allow_html=True
+)
 
-# 1. Use camera_input instead of file_uploader
-picture = st.camera_input("Take a selfie!")
+# 1. Camera Input for Selfie
+picture = st.camera_input("Take a selfie! / સેલ્ફી લો!")
 
 if picture is not None:
     # Open the captured image
@@ -37,3 +47,16 @@ if picture is not None:
     
     # Display the result
     st.image(result_image, caption=f"Detected {len(faces)} face(s) in your selfie!", use_container_width=True)
+
+# ---------------------------------------------------------
+# Footer Section to display your name
+# ---------------------------------------------------------
+st.markdown("---")
+st.markdown(
+    """
+    <div style="text-align: center; color: gray; font-size: 14px;">
+        Build by <strong>Vishal Parmar</strong>
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
