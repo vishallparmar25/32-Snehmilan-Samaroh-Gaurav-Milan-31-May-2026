@@ -3,4 +3,5 @@ numpy
 pillow
 requests
 cmake
+dlib==19.24.1
 face_recognition==1.3.0
