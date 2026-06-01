@@ -1,0 +1,3 @@
+cmake
+g++
+libx11-dev
