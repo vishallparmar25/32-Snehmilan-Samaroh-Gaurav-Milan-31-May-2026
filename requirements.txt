@@ -1,1 +1,3 @@
-https://github.com/alesanfra/dlib-wheels/releases/download/v19.24.2/dlib-19.24.2-cp311-cp311-linux_x86_64.whl
+streamlit
+face_recognition
+dlib==19.24.2
