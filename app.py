@@ -141,6 +141,7 @@ if picture is not None:
             st.write("Comparing your face against the database...")
             
             for item in cached_album:
+                # Safe key retrieval with defaults to prevent KeyError crashes
                 encodings = item.get("encodings", [])
                 item_path = item.get("path", "")
                 item_name = item.get("name", os.path.basename(item_path) if item_path else "photo.jpg")
@@ -159,26 +160,19 @@ if picture is not None:
             else:
                 st.success(f"Found {len(matched_photos)} matching photos!")
                 
-                # --- OPTIMIZED DOWNLOAD CONTEXT ---
-                # Instead of running download inside the photo loop 62 times,
-                # we trigger it ONCE here if any local image file is missing.
-                missing_local_files = any(not os.path.exists(os.path.join(EVENT_IMAGES_DIR, p["name"])) for p in matched_photos)
-                
-                if missing_local_files:
-                    with st.spinner("📥 Downloading matching high-quality images from Google Drive..."):
-                        try:
-                            url = f"https://drive.google.com/drive/folders/{GOOGLE_DRIVE_FOLDER_ID}"
-                            # Removed 'remaining_ok' to fix the version crash error
-                            gdown.download_folder(url, output=EVENT_IMAGES_DIR, quiet=True)
-                        except Exception as download_error:
-                            st.error(f"Cloud storage sync issue: {download_error}")
-
-                # --- DISPLAY RESULTS ---
                 for photo in matched_photos:
                     if not photo["name"]:
                         continue
                         
                     local_path = os.path.join(EVENT_IMAGES_DIR, photo["name"])
+                    
+                    if not os.path.exists(local_path):
+                        with st.spinner(f"📥 Pulling original high-quality file: {photo['name']}..."):
+                            try:
+                                url = f"https://drive.google.com/drive/folders/{GOOGLE_DRIVE_FOLDER_ID}"
+                                gdown.download_folder(url, output=EVENT_IMAGES_DIR, quiet=True, remaining_ok=True)
+                            except Exception as download_error:
+                                st.error(f"Cloud stream interrupted for file {photo['name']}: {download_error}")
 
                     if os.path.exists(local_path):
                         st.image(local_path, use_container_width=True)
