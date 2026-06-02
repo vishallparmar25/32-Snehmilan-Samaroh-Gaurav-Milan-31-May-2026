@@ -87,8 +87,8 @@ st.write("Album is permanently indexed for instant, high-accuracy searches.")
 
 # --- SIDEBAR CREDITS & CONTROLS ---
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 🛠️ Developer Profile")
-st.sidebar.info("🚀 Built with ❤️ by **Vishal Parmar**")
+st.sidebar.markdown("### 🔍 Engine Information")
+st.sidebar.info("⚡ **Instant Match. Infinite Speed.**\n\n🛠️ *Engineered by Vishal Parmar*")
 st.sidebar.markdown("---")
 
 # --- LOAD DATABASE ---
