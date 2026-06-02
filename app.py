@@ -111,66 +111,65 @@ if picture is not None:
     st.success("Selfie captured!")
     
     if st.button("🚀 Find My Photos Instantly"):
-        try:
-            pil_selfie = Image.open(picture).convert('RGB')
-            selfie_image = np.array(pil_selfie, dtype=np.uint8)
-            selfie_encodings = get_face_encodings(selfie_image)
-        except Exception as e:
-            st.error(f"Error reading selfie: {e}")
-            selfie_encodings = []
-            
-        if len(selfie_encodings) == 0:
-            st.error("AI couldn't see your face clearly. Face the camera directly in good lighting!")
-        else:
-            user_face_encoding = selfie_encodings[0]
-            matched_photos = []
-            
-            st.write("Comparing your face against the database...")
-            
-            for item in cached_album:
-                encodings = item.get("encodings", [])
-                item_path = item.get("path", "")
-                item_name = item.get("name", os.path.basename(item_path) if item_path else "photo.jpg")
+        # --- TRAFFIC/PROCESSING LOADING NOTE ---
+        with st.spinner("⏳ કૃપા કરીને ૨-૫ સેકન્ડ રાહ જુઓ! | Processing your request, please wait 2-5 seconds..."):
+            try:
+                pil_selfie = Image.open(picture).convert('RGB')
+                selfie_image = np.array(pil_selfie, dtype=np.uint8)
+                selfie_encodings = get_face_encodings(selfie_image)
+            except Exception as e:
+                st.error(f"Error reading selfie: {e}")
+                selfie_encodings = []
                 
-                for face_encode in encodings:
-                    matches = compare_faces([user_face_encoding], face_encode, tolerance=0.45)
-                    if matches[0]:
-                        matched_photos.append({"name": item_name})
-                        break 
-            
-            if not matched_photos:
-                st.warning("No precise matches found of you.")
+            if len(selfie_encodings) == 0:
+                st.error("AI couldn't see your face clearly. Face the camera directly in good lighting!")
             else:
-                st.success(f"🎉 Found {len(matched_photos)} matching photos!")
+                user_face_encoding = selfie_encodings[0]
+                matched_photos = []
                 
-                for idx, photo in enumerate(matched_photos):
-                    if not photo["name"]:
-                        continue
+                for item in cached_album:
+                    encodings = item.get("encodings", [])
+                    item_path = item.get("path", "")
+                    item_name = item.get("name", os.path.basename(item_path) if item_path else "photo.jpg")
                     
-                    st.markdown(f"### 🖼️ Result #{idx + 1}")
+                    for face_encode in encodings:
+                        matches = compare_faces([user_face_encoding], face_encode, tolerance=0.45)
+                        if matches[0]:
+                            matched_photos.append({"name": item_name})
+                            break 
+                
+                if not matched_photos:
+                    st.warning("No precise matches found of you.")
+                else:
+                    st.success(f"🎉 Found {len(matched_photos)} matching photos!")
                     
-                    lookup_name = photo["name"].lower().strip()
-                    file_id = drive_map.get(lookup_name)
-                    
-                    if file_id:
-                        # --- THE FIXED LINK STRUCT ---
-                        # Use Google's content delivery layout (lh3) to force clear public embedding previews
-                        direct_image_url = f"https://lh3.googleusercontent.com/d/{file_id}"
-                        direct_download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+                    for idx, photo in enumerate(matched_photos):
+                        if not photo["name"]:
+                            continue
                         
-                        # Displays clear image on page instantly without cookie/login wall blocks
-                        st.image(direct_image_url, caption=photo["name"], use_container_width=True)
+                        st.markdown(f"### 🖼️ Result #{idx + 1}")
                         
-                        # Renders functioning anonymous download link button card
-                        st.markdown(
-                            f'<a href="{direct_download_url}" download target="_blank" style="text-decoration: none;">'
-                            f'<button style="background-color: #2e7d32; color: white; border: none; padding: 12px 20px; '
-                            f'border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px;"> '
-                            f'📥 Save High-Res Original (Anonymous Download)'
-                            f'</button></a>', 
-                            unsafe_allow_html=True
-                        )
-                    else:
-                        st.warning(f"📄 File `{photo['name']}` found in database, but drive sync skipped it. Check filename spelling inside Google Drive.")
-                    
-                    st.markdown("---")
+                        lookup_name = photo["name"].lower().strip()
+                        file_id = drive_map.get(lookup_name)
+                        
+                        if file_id:
+                            # --- THE FIXED LINK STRUCT ---
+                            direct_image_url = f"https://lh3.googleusercontent.com/d/{file_id}"
+                            direct_download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+                            
+                            # Displays clear image on page instantly without cookie/login wall blocks
+                            st.image(direct_image_url, caption=photo["name"], use_container_width=True)
+                            
+                            # Renders functioning anonymous download link button card
+                            st.markdown(
+                                f'<a href="{direct_download_url}" download target="_blank" style="text-decoration: none;">'
+                                f'<button style="background-color: #2e7d32; color: white; border: none; padding: 12px 20px; '
+                                f'border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px;"> '
+                                f'📥 Save High-Res Original (Anonymous Download)'
+                                f'</button></a>', 
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            st.warning(f"📄 File `{photo['name']}` found in database, but drive sync skipped it. Check filename spelling inside Google Drive.")
+                        
+                        st.markdown("---")
