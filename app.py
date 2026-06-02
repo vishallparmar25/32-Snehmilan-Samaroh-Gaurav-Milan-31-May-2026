@@ -9,7 +9,23 @@ import cv2
 import json
 import subprocess
 
-# --- APP CONFIGURATION ---
+# --- APP CONFIGURATION & HIDING GIT LINKS ---
+st.set_page_config(
+    page_title="AI Photo Finder",
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
+
+# Injected CSS to completely hide Streamlit's top-right GitHub/deploy menu options
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            header {visibility: hidden;}
+            footer {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 EVENT_IMAGES_DIR = "event_images"
 INDEX_FILE = "gallery_index.pkl"
 GOOGLE_DRIVE_FOLDER_ID = "1KaLc9BAAQJqNM7DiHjCYGELqGUbB-HQt"
@@ -83,19 +99,16 @@ def fetch_fast_drive_mapping(folder_id):
 # --- CUSTOM GUJARATI TITLE & SUBTITLE ---
 st.title("શ્રી સતવારા જ્ઞાતિ મંડળ સુરત 32 મો સ્નેહમિલન સમારોહ (ગૌરવ મિલન ) 31 મે 2026")
 st.subheader("⚡ Ultra-Fast AI Event Photo Finder")
-st.write("Album is permanently indexed for instant, high-accuracy searches.")
 
-# --- SIDEBAR CREDITS & CONTROLS ---
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🔍 Engine Information")
-st.sidebar.info("⚡ **Instant Match. Infinite Speed.**\n\n🛠️ *Engineered by Vishal Parmar*")
-st.sidebar.markdown("---")
+# --- CREDITS PLACED DIRECTLY BELOW SUBHEADER NOW ---
+st.info("⚡ **Instant Match. Infinite Speed.**\n\n🛠️ *Engineered by Vishal Parmar*")
+st.write("Album is permanently indexed for instant, high-accuracy searches.")
+st.markdown("---")
 
 # --- LOAD DATABASE ---
 if os.path.exists(INDEX_FILE):
     with open(INDEX_FILE, "rb") as f:
         cached_album = pickle.load(f)
-    st.sidebar.success("⚡ Database Loaded!")
 else:
     st.error(f"🚨 '{INDEX_FILE}' not found! Please check your Git repository deployment.")
     st.stop()
