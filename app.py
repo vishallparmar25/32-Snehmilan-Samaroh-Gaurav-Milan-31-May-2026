@@ -120,6 +120,9 @@ with st.spinner("Synchronizing server link pipeline..."):
     drive_map = fetch_fast_drive_mapping(GOOGLE_DRIVE_FOLDER_ID)
 
 # --- USER CAM SCANNING ---
+# Added notice about glasses/specs for better face detection performance
+st.warning("👓 **Note:** Please remove your glasses/specs before taking the selfie for better accuracy.\n\n(કૃપા કરીને સેલ્ફી લેતા પહેલા ચશ્મા ઉતારી લો જેથી તમારો ચહેરો બરાબર ઓળખાઈ શકે.)")
+
 picture = st.camera_input("Snap your selfie")
 
 if picture is not None:
