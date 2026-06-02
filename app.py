@@ -29,6 +29,7 @@ face_rec_path = os.path.join(BASE_MODELS_DIR, "dlib_face_recognition_resnet_mode
 
 @st.cache_resource
 def load_dlib_models():
+    """Caches heavy dlib models in memory so they only load ONCE"""
     detector = dlib.get_frontal_face_detector()
     predictor = dlib.shape_predictor(predictor_path)
     encoder = dlib.face_recognition_model_v1(face_rec_path)
@@ -40,6 +41,7 @@ except Exception as e:
     st.error(f"Error loading AI models. Checked path: {predictor_path}. System Error: {e}")
 
 def get_face_encodings(img_array):
+    """Locates faces and generates 128D encodings matching face_recognition output"""
     detected_faces = face_detector(img_array, 1)
     encodings = []
     for face in detected_faces:
@@ -49,6 +51,7 @@ def get_face_encodings(img_array):
     return encodings
 
 def compare_faces(known_encodings, face_to_check, tolerance=0.45):
+    """Computes Euclidean distance to find matching faces"""
     if len(known_encodings) == 0:
         return [False]
     distances = np.linalg.norm(known_encodings - face_to_check, axis=1)
@@ -62,15 +65,12 @@ def fetch_fast_drive_mapping(folder_id):
     """
     mapping = {}
     try:
-        # Calls gdown command line to safely get folder metadata mapping dictionary
         cmd = ["gdown", f"https://drive.google.com/drive/folders/{folder_id}", "--folder", "--json"]
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         
         if result.stdout:
-            # Parse the structured JSON response array back from gdown
             data = json.loads(result.stdout)
             for item in data:
-                # Extract file ID from direct download URL schema
                 url = item.get("url", "")
                 name = item.get("path", "").lower().strip()
                 if "id=" in url:
@@ -80,9 +80,16 @@ def fetch_fast_drive_mapping(folder_id):
         pass
     return mapping
 
-# --- CUSTOM GUJARATI TITLE ---
+# --- CUSTOM GUJARATI TITLE & SUBTITLE ---
 st.title("શ્રી સતવારા જ્ઞાતિ મંડળ સુરત 32 મો સ્નેહમિલન સમારોહ (ગૌરવ મિલન ) 31 મે 2026")
 st.subheader("⚡ Ultra-Fast AI Event Photo Finder")
+st.write("Album is permanently indexed for instant, high-accuracy searches.")
+
+# --- SIDEBAR CREDITS & CONTROLS ---
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🛠️ Developer Profile")
+st.sidebar.info("🚀 Built with ❤️ by **Vishal Parmar**")
+st.sidebar.markdown("---")
 
 # --- LOAD DATABASE ---
 if os.path.exists(INDEX_FILE):
@@ -90,13 +97,14 @@ if os.path.exists(INDEX_FILE):
         cached_album = pickle.load(f)
     st.sidebar.success("⚡ Database Loaded!")
 else:
-    st.error(f"🚨 '{INDEX_FILE}' not found!")
+    st.error(f"🚨 '{INDEX_FILE}' not found! Please check your Git repository deployment.")
     st.stop()
 
-# Generate high-speed mapping list from Google Drive
+# Generate mapping cache pipeline instantly
 with st.spinner("Synchronizing server link pipeline..."):
     drive_map = fetch_fast_drive_mapping(GOOGLE_DRIVE_FOLDER_ID)
 
+# --- USER CAM SCANNING ---
 picture = st.camera_input("Snap your selfie")
 
 if picture is not None:
@@ -141,19 +149,19 @@ if picture is not None:
                     
                     st.markdown(f"### 🖼️ Result #{idx + 1}")
                     
-                    # Look up by lowercase filename matching your database parameters
                     lookup_name = photo["name"].lower().strip()
                     file_id = drive_map.get(lookup_name)
                     
                     if file_id:
-                        # Clean direct links that completely bypass sign-in walls
-                        direct_image_url = f"https://drive.google.com/uc?export=view&id={file_id}"
+                        # --- THE FIXED LINK STRUCT ---
+                        # Use Google's content delivery layout (lh3) to force clear public embedding previews
+                        direct_image_url = f"https://lh3.googleusercontent.com/d/{file_id}"
                         direct_download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
                         
-                        # Displays clean image on dashboard immediately 
+                        # Displays clear image on page instantly without cookie/login wall blocks
                         st.image(direct_image_url, caption=photo["name"], use_container_width=True)
                         
-                        # Renders functional anonymous instant storage save trigger link button
+                        # Renders functioning anonymous download link button card
                         st.markdown(
                             f'<a href="{direct_download_url}" download target="_blank" style="text-decoration: none;">'
                             f'<button style="background-color: #2e7d32; color: white; border: none; padding: 12px 20px; '
@@ -163,6 +171,6 @@ if picture is not None:
                             unsafe_allow_html=True
                         )
                     else:
-                        st.warning(f"📄 File `{photo['name']}` found in database, but the drive sync skipped it. Check filename sync properties.")
+                        st.warning(f"📄 File `{photo['name']}` found in database, but drive sync skipped it. Check filename spelling inside Google Drive.")
                     
                     st.markdown("---")
