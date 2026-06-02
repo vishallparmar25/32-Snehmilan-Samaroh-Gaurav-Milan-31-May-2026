@@ -9,26 +9,22 @@ import cv2
 import json
 import subprocess
 
-# --- APP CONFIGURATION & HIDING GIT/PROFILE LINKS ---
-st.set_page_config(
-    page_title="AI Photo Finder",
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
+# --- APP CONFIGURATION & CLEAN INTERFACE ---
+st.set_page_config(page_title="AI Photo Finder")
 
-# Comprehensive injected CSS to remove top header, GitHub links, footer, and the bottom profile widget
-hide_streamlit_style = """
+# Injected CSS to hide the top GitHub menu, footer, and creator profile badge at the bottom
+hide_elements = """
             <style>
             #MainMenu {visibility: hidden;}
             header {visibility: hidden;}
             footer {visibility: hidden;}
             div[data-testid="stStatusWidget"] {visibility: hidden;}
-            [data-testid="stDecoration"] {display: none;}
             .viewerBadge_container__1QSob {display: none !important;}
             </style>
             """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+st.markdown(hide_elements, unsafe_allow_html=True)
 
+# --- DIRECTORY CONFIGURATION ---
 EVENT_IMAGES_DIR = "event_images"
 INDEX_FILE = "gallery_index.pkl"
 GOOGLE_DRIVE_FOLDER_ID = "1KaLc9BAAQJqNM7DiHjCYGELqGUbB-HQt"
@@ -102,3 +98,53 @@ def fetch_fast_drive_mapping(folder_id):
 # --- CUSTOM GUJARATI TITLE & SUBTITLE ---
 st.title("શ્રી સતવારા જ્ઞાતિ મંડળ સુરત 32 મો સ્નેહમિલન સમારોહ (ગૌરવ મિલન ) 31 મે 2026")
 st.subheader("⚡ Ultra-Fast AI Event Photo Finder")
+
+# --- ENGINE CREDITS PLACED EXACTLY HERE NOW ---
+st.info("⚡ **Instant Match. Infinite Speed.**\n\n🛠️ *Engineered by Vishal Parmar*")
+
+st.write("Album is permanently indexed for instant, high-accuracy searches.")
+
+# --- LOAD DATABASE ---
+if os.path.exists(INDEX_FILE):
+    with open(INDEX_FILE, "rb") as f:
+        cached_album = pickle.load(f)
+else:
+    st.error(f"🚨 '{INDEX_FILE}' not found! Please check your Git repository deployment.")
+    st.stop()
+
+# Generate mapping cache pipeline instantly
+with st.spinner("Synchronizing server link pipeline..."):
+    drive_map = fetch_fast_drive_mapping(GOOGLE_DRIVE_FOLDER_ID)
+
+# --- USER CAM SCANNING ---
+picture = st.camera_input("Snap your selfie")
+
+if picture is not None:
+    st.success("Selfie captured!")
+    
+    if st.button("🚀 Find My Photos Instantly"):
+        # --- TRAFFIC/PROCESSING LOADING NOTE ---
+        with st.spinner("⏳ કૃપા કરીને ૨-૫ સેકન્ડ રાહ જુઓ! | Processing your request, please wait 2-5 seconds..."):
+            try:
+                pil_selfie = Image.open(picture).convert('RGB')
+                selfie_image = np.array(pil_selfie, dtype=np.uint8)
+                selfie_encodings = get_face_encodings(selfie_image)
+            except Exception as e:
+                st.error(f"Error reading selfie: {e}")
+                selfie_encodings = []
+                
+            if len(selfie_encodings) == 0:
+                st.error("AI couldn't see your face clearly. Face the camera directly in good lighting!")
+            else:
+                user_face_encoding = selfie_encodings[0]
+                matched_photos = []
+                
+                for item in cached_album:
+                    encodings = item.get("encodings", [])
+                    item_path = item.get("path", "")
+                    item_name = item.get("name", os.path.basename(item_path) if item_path else "photo.jpg")
+                    
+                    for face_encode in encodings:
+                        matches = compare_faces([user_face_encoding], face_encode, tolerance=0.45)
+                        if matches[0]:
+                            matched_photos.append({"name": item_name})
