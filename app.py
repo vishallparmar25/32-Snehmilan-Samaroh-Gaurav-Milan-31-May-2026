@@ -9,17 +9,20 @@ import cv2
 import json
 import subprocess
 
-# --- APP CONFIGURATION & CLEAN INTERFACE ---
+# --- APP CONFIGURATION & TOTAL CLEAN INTERFACE ---
 st.set_page_config(page_title="AI Photo Finder")
 
-# Injected CSS to hide the top GitHub menu, footer, and creator profile badge at the bottom
+# Deep CSS overrides to destroy top header, GitHub icons, footers, status widgets, and profile containers across desktop & mobile viewports
 hide_elements = """
             <style>
-            #MainMenu {visibility: hidden;}
-            header {visibility: hidden;}
-            footer {visibility: hidden;}
-            div[data-testid="stStatusWidget"] {visibility: hidden;}
-            .viewerBadge_container__1QSob {display: none !important;}
+            #MainMenu {visibility: hidden; display: none;}
+            header {visibility: hidden; display: none;}
+            footer {visibility: hidden; display: none;}
+            div[data-testid="stStatusWidget"] {visibility: hidden; display: none !important;}
+            [data-testid="stDecoration"] {display: none !important;}
+            div[class^="viewerBadge_container"] {display: none !important;}
+            div[class*="viewerBadge"] {display: none !important;}
+            iframe[title="Managed Hosting Badge"] {display: none !important;}
             </style>
             """
 st.markdown(hide_elements, unsafe_allow_html=True)
@@ -99,7 +102,7 @@ def fetch_fast_drive_mapping(folder_id):
 st.title("શ્રી સતવારા જ્ઞાતિ મંડળ સુરત 32 મો સ્નેહમિલન સમારોહ (ગૌરવ મિલન ) 31 મે 2026")
 st.subheader("⚡ Ultra-Fast AI Event Photo Finder")
 
-# --- ENGINE CREDITS PLACED EXACTLY HERE NOW ---
+# --- ENGINE CREDITS ---
 st.info("⚡ **Instant Match. Infinite Speed.**\n\n🛠️ *Engineered by Vishal Parmar*")
 
 st.write("Album is permanently indexed for instant, high-accuracy searches.")
@@ -148,3 +151,40 @@ if picture is not None:
                         matches = compare_faces([user_face_encoding], face_encode, tolerance=0.45)
                         if matches[0]:
                             matched_photos.append({"name": item_name})
+                            break 
+                
+                if not matched_photos:
+                    st.warning("No precise matches found of you.")
+                else:
+                    st.success(f"🎉 Found {len(matched_photos)} matching photos!")
+                    
+                    for idx, photo in enumerate(matched_photos):
+                        if not photo["name"]:
+                            continue
+                        
+                        st.markdown(f"### 🖼️ Result #{idx + 1}")
+                        
+                        lookup_name = photo["name"].lower().strip()
+                        file_id = drive_map.get(lookup_name)
+                        
+                        if file_id:
+                            # --- THE FIXED LINK STRUCT ---
+                            direct_image_url = f"https://lh3.googleusercontent.com/d/{file_id}"
+                            direct_download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+                            
+                            # Displays clear image on page instantly without cookie/login wall blocks
+                            st.image(direct_image_url, caption=photo["name"], use_container_width=True)
+                            
+                            # Renders functioning anonymous download link button card
+                            st.markdown(
+                                f'<a href="{direct_download_url}" download target="_blank" style="text-decoration: none;">'
+                                f'<button style="background-color: #2e7d32; color: white; border: none; padding: 12px 20px; '
+                                f'border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px;"> '
+                                f'📥 Save High-Res Original (Anonymous Download)'
+                                f'</button></a>', 
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            st.warning(f"📄 File `{photo['name']}` found in database, but drive sync skipped it. Check filename spelling inside Google Drive.")
+                        
+                        st.markdown("---")
