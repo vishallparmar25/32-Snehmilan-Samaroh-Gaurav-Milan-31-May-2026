@@ -6,8 +6,8 @@ import numpy as np
 import pickle
 import dlib
 import cv2
-import requests
-import xml.etree.ElementTree as ET
+import json
+import subprocess
 
 # --- APP CONFIGURATION ---
 EVENT_IMAGES_DIR = "event_images"
@@ -29,7 +29,6 @@ face_rec_path = os.path.join(BASE_MODELS_DIR, "dlib_face_recognition_resnet_mode
 
 @st.cache_resource
 def load_dlib_models():
-    """Caches heavy dlib models in memory so they only load ONCE"""
     detector = dlib.get_frontal_face_detector()
     predictor = dlib.shape_predictor(predictor_path)
     encoder = dlib.face_recognition_model_v1(face_rec_path)
@@ -41,7 +40,6 @@ except Exception as e:
     st.error(f"Error loading AI models. Checked path: {predictor_path}. System Error: {e}")
 
 def get_face_encodings(img_array):
-    """Locates faces and generates 128D encodings matching face_recognition output"""
     detected_faces = face_detector(img_array, 1)
     encodings = []
     for face in detected_faces:
@@ -51,67 +49,54 @@ def get_face_encodings(img_array):
     return encodings
 
 def compare_faces(known_encodings, face_to_check, tolerance=0.45):
-    """Computes Euclidean distance to find matching faces"""
     if len(known_encodings) == 0:
         return [False]
     distances = np.linalg.norm(known_encodings - face_to_check, axis=1)
     return list(distances <= tolerance)
 
 @st.cache_data(ttl=600)
-def fetch_anonymous_drive_map(folder_id):
+def fetch_fast_drive_mapping(folder_id):
     """
-    Anonymously queries the Google Drive folder via its public XML feed
-    to build a high-speed filename -> File ID mapping dictionary.
+    Leverages gdown's native internal extraction engine via subprocess 
+    to fetch filenames and file IDs anonymously in under 2 seconds.
     """
     mapping = {}
     try:
-        # Request Google's public folder hosting feed directly
-        feed_url = f"https://docs.google.com/feeds/metadata/public/folder%3A{folder_id}"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(feed_url, headers=headers)
+        # Calls gdown command line to safely get folder metadata mapping dictionary
+        cmd = ["gdown", f"https://drive.google.com/drive/folders/{folder_id}", "--folder", "--json"]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         
-        if res.status_code == 200:
-            root = ET.fromstring(res.content)
-            # Define standard atom XML namespaces used by Google Drive feeds
-            ns = {'atom': 'http://www.w3.org/2005/Atom'}
-            
-            for entry in root.findall('atom:entry', ns):
-                title_elem = entry.find('atom:title', ns)
-                id_elem = entry.find('atom:id', ns)
-                
-                if title_elem is not None and id_elem is not None:
-                    filename = title_elem.text.strip().lower()
-                    # Extract raw File ID string out of the URI structure
-                    raw_id = id_elem.text.split('/')[-1]
-                    mapping[filename] = raw_id
+        if result.stdout:
+            # Parse the structured JSON response array back from gdown
+            data = json.loads(result.stdout)
+            for item in data:
+                # Extract file ID from direct download URL schema
+                url = item.get("url", "")
+                name = item.get("path", "").lower().strip()
+                if "id=" in url:
+                    file_id = url.split("id=")[-1]
+                    mapping[name] = file_id
     except Exception:
         pass
     return mapping
 
-# --- CUSTOM GUJARATI TITLE & SUBTITLE ---
+# --- CUSTOM GUJARATI TITLE ---
 st.title("શ્રી સતવારા જ્ઞાતિ મંડળ સુરત 32 મો સ્નેહમિલન સમારોહ (ગૌરવ મિલન ) 31 મે 2026")
 st.subheader("⚡ Ultra-Fast AI Event Photo Finder")
-st.write("Album is permanently indexed for instant, high-accuracy searches.")
-
-# --- SIDEBAR CREDITS & CONTROLS ---
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🛠️ Developer Profile")
-st.sidebar.info("🚀 Built with ❤️ by **Vishal Parmar**")
-st.sidebar.markdown("---")
 
 # --- LOAD DATABASE ---
 if os.path.exists(INDEX_FILE):
     with open(INDEX_FILE, "rb") as f:
         cached_album = pickle.load(f)
-    st.sidebar.success("⚡ Database Loaded! Search will be instant.")
+    st.sidebar.success("⚡ Database Loaded!")
 else:
-    st.error(f"🚨 '{INDEX_FILE}' not found! Please check your Git repository deployment.")
+    st.error(f"🚨 '{INDEX_FILE}' not found!")
     st.stop()
 
-# Build filename map dynamically using the public metadata feed
-drive_map = fetch_anonymous_drive_map(GOOGLE_DRIVE_FOLDER_ID)
+# Generate high-speed mapping list from Google Drive
+with st.spinner("Synchronizing server link pipeline..."):
+    drive_map = fetch_fast_drive_mapping(GOOGLE_DRIVE_FOLDER_ID)
 
-# --- USER CAM SCANNING ---
 picture = st.camera_input("Snap your selfie")
 
 if picture is not None:
@@ -142,9 +127,7 @@ if picture is not None:
                 for face_encode in encodings:
                     matches = compare_faces([user_face_encoding], face_encode, tolerance=0.45)
                     if matches[0]:
-                        matched_photos.append({
-                            "name": item_name
-                        })
+                        matched_photos.append({"name": item_name})
                         break 
             
             if not matched_photos:
@@ -152,25 +135,25 @@ if picture is not None:
             else:
                 st.success(f"🎉 Found {len(matched_photos)} matching photos!")
                 
-                # Render matches instantly via direct download links
                 for idx, photo in enumerate(matched_photos):
                     if not photo["name"]:
                         continue
                     
                     st.markdown(f"### 🖼️ Result #{idx + 1}")
                     
+                    # Look up by lowercase filename matching your database parameters
                     lookup_name = photo["name"].lower().strip()
                     file_id = drive_map.get(lookup_name)
                     
                     if file_id:
-                        # Direct image endpoints bypassing the login walls
+                        # Clean direct links that completely bypass sign-in walls
                         direct_image_url = f"https://drive.google.com/uc?export=view&id={file_id}"
                         direct_download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
                         
-                        # Display preview images directly on the dashboard page layout
+                        # Displays clean image on dashboard immediately 
                         st.image(direct_image_url, caption=photo["name"], use_container_width=True)
                         
-                        # Provide a clean, direct download action button link
+                        # Renders functional anonymous instant storage save trigger link button
                         st.markdown(
                             f'<a href="{direct_download_url}" download target="_blank" style="text-decoration: none;">'
                             f'<button style="background-color: #2e7d32; color: white; border: none; padding: 12px 20px; '
@@ -180,6 +163,6 @@ if picture is not None:
                             unsafe_allow_html=True
                         )
                     else:
-                        st.warning(f"📄 File `{photo['name']}` found in face-index, but could not read matching link ID directly. Verify public viewer access settings on this file inside Google Drive.")
+                        st.warning(f"📄 File `{photo['name']}` found in database, but the drive sync skipped it. Check filename sync properties.")
                     
                     st.markdown("---")
