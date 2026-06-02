@@ -6,14 +6,13 @@ import numpy as np
 import pickle
 import dlib
 import cv2
-import requests  # Added for lightweight direct streaming
 
 # --- APP CONFIGURATION ---
 EVENT_IMAGES_DIR = "event_images"
 INDEX_FILE = "gallery_index.pkl"
 GOOGLE_DRIVE_FOLDER_ID = "1KaLc9BAAQJqNM7DiHjCYGELqGUbB-HQt"
 
-# Ensure local directory exists for storing matched photos on-the-fly
+# Ensure local directory exists (used for runtime operations)
 if not os.path.exists(EVENT_IMAGES_DIR):
     os.makedirs(EVENT_IMAGES_DIR, exist_ok=True)
 
@@ -68,13 +67,13 @@ st.sidebar.markdown("### 🛠️ Developer Profile")
 st.sidebar.info("🚀 Built with ❤️ by **Vishal Parmar**")
 st.sidebar.markdown("---")
 
-# --- INTELLIGENT INDEX LOADING (Git Source) ---
+# --- INTELLIGENT INDEX LOADING (From Git Repo) ---
 if os.path.exists(INDEX_FILE):
     with open(INDEX_FILE, "rb") as f:
         cached_album = pickle.load(f)
     st.sidebar.success("⚡ Database Loaded! Search will be instant.")
 else:
-    st.error(f"🚨 '{INDEX_FILE}' not found! Please make sure it's committed to your Git repository.")
+    st.error(f"🚨 '{INDEX_FILE}' not found! Please check your Git repository deployment.")
     st.stop()
 
 # --- USER CAM SCANNING ---
@@ -114,54 +113,31 @@ if picture is not None:
                         break 
             
             if not matched_photos:
-                st.warning("No highly precise matches found of you.")
+                st.warning("No precise matches found of you.")
             else:
-                st.success(f"Found {len(matched_photos)} matching photos!")
+                st.success(f"🎉 Found {len(matched_photos)} matching photos!")
                 
-                # Render matches dynamically
+                # Render matches instantly via direct download links
                 for idx, photo in enumerate(matched_photos):
                     if not photo["name"]:
                         continue
-                        
-                    local_path = os.path.join(EVENT_IMAGES_DIR, photo["name"])
                     
-                    # --- DOWNLOAD ONLY THE MATCHED PHOTO ---
-                    if not os.path.exists(local_path):
-                        with st.spinner(f"📥 Pulling original high-quality file {idx+1}/{len(matched_photos)}: {photo['name']}..."):
-                            try:
-                                # We construct a web stream directly targeting the exact filename inside your shared folder link
-                                # Google Drive allows public folder structure downloads if file name is specified via API or web request fallback
-                                import gdown
-                                url = f"https://drive.google.com/uc?export=download&id={GOOGLE_DRIVE_FOLDER_ID}"
-                                
-                                # Fallback solution to stream down individual file safely without folder scanning loop
-                                # If direct name download fails via gdown, we use standard requests matching your shared configuration
-                                file_url = f"https://drive.google.com/uc?export=download&id={GOOGLE_DRIVE_FOLDER_ID}"
-                                
-                                # Since we do not have specific File IDs inside the .pkl, we search and grab the specific file using gdown fuzzy matching option
-                                gdown.download(fuzzy=True, id=GOOGLE_DRIVE_FOLDER_ID, output=local_path, quiet=True)
-                                
-                                # If the filename pulled doesn't match, verify if it saved correctly
-                                if not os.path.exists(local_path):
-                                    # Fallback to standard web request if gdown fuzzy breaks
-                                    pass
-                            except Exception as download_error:
-                                pass
-
-                    # Show image if available locally
-                    if os.path.exists(local_path):
-                        st.image(local_path, use_container_width=True)
-                        
-                        try:
-                            with open(local_path, "rb") as file:
-                                file_bytes = file.read()
-                            
-                            btn_label = f"📥 Download Original Photo ({photo['name']})"
-                            st.download_button(label=btn_label, data=file_bytes, file_name=photo["name"], mime="image/jpeg", key=f"btn_{local_path}_{idx}")
-                        except Exception as e:
-                            st.error(f"Could not initialize download button: {e}")
-                    else:
-                        # Alternative if file cannot download individually without file ID
-                        st.error(f"Could not download '{photo['name']}' directly. Make sure files inside your Google Drive folder are set to 'Anyone with link can view'.")
+                    # Create a clean UI card layout for each item
+                    st.markdown(f"### 🖼️ Result #{idx + 1}")
+                    st.info(f"📄 **File Name:** `{photo['name']}`")
+                    
+                    # Build a URL that opens Google Drive and highlights/filters specifically for this file name
+                    drive_search_url = f"https://drive.google.com/drive/folders/{GOOGLE_DRIVE_FOLDER_ID}?q=name:\"{photo['name']}\""
+                    
+                    # Display a secure, styled web link to view and fetch the source asset instantly
+                    st.markdown(
+                        f'<a href="{drive_search_url}" target="_blank" style="text-decoration: none;">'
+                        f'<button style="background-color: #2e7d32; color: white; border: none; padding: 10px 20px; '
+                        f'border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%;"> '
+                        f'👁️ View & Download High-Res Original on Google Drive'
+                        f'</button></a>', 
+                        unsafe_allow_allowed_html=True,
+                        unsafe_allow_html=True
+                    )
                     
                     st.markdown("---")
