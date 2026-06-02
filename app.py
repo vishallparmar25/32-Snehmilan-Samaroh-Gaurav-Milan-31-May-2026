@@ -12,7 +12,6 @@ EVENT_IMAGES_DIR = "event_images"
 INDEX_FILE = "gallery_index.pkl"
 GOOGLE_DRIVE_FOLDER_ID = "1KaLc9BAAQJqNM7DiHjCYGELqGUbB-HQt"
 
-# Ensure local directory exists (used for runtime operations)
 if not os.path.exists(EVENT_IMAGES_DIR):
     os.makedirs(EVENT_IMAGES_DIR, exist_ok=True)
 
@@ -67,7 +66,7 @@ st.sidebar.markdown("### 🛠️ Developer Profile")
 st.sidebar.info("🚀 Built with ❤️ by **Vishal Parmar**")
 st.sidebar.markdown("---")
 
-# --- INTELLIGENT INDEX LOADING (From Git Repo) ---
+# --- INTELLIGENT INDEX LOADING ---
 if os.path.exists(INDEX_FILE):
     with open(INDEX_FILE, "rb") as f:
         cached_album = pickle.load(f)
@@ -117,26 +116,24 @@ if picture is not None:
             else:
                 st.success(f"🎉 Found {len(matched_photos)} matching photos!")
                 
-                # Render matches instantly via direct download links
+                # Render download redirect layout elements safely
                 for idx, photo in enumerate(matched_photos):
                     if not photo["name"]:
                         continue
                     
-                    # Create a clean UI card layout for each item
                     st.markdown(f"### 🖼️ Result #{idx + 1}")
                     st.info(f"📄 **File Name:** `{photo['name']}`")
                     
-                    # Build a URL that opens Google Drive and highlights/filters specifically for this file name
+                    # Create search lookup anchor string for Google Drive
                     drive_search_url = f"https://drive.google.com/drive/folders/{GOOGLE_DRIVE_FOLDER_ID}?q=name:\"{photo['name']}\""
                     
-                    # Display a secure, styled web link to view and fetch the source asset instantly
+                    # Cleaned HTML injection layout container
                     st.markdown(
                         f'<a href="{drive_search_url}" target="_blank" style="text-decoration: none;">'
-                        f'<button style="background-color: #2e7d32; color: white; border: none; padding: 10px 20px; '
-                        f'border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%;"> '
+                        f'<button style="background-color: #2e7d32; color: white; border: none; padding: 12px 20px; '
+                        f'border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px;"> '
                         f'👁️ View & Download High-Res Original on Google Drive'
                         f'</button></a>', 
-                        unsafe_allow_allowed_html=True,
                         unsafe_allow_html=True
                     )
                     
