@@ -7,7 +7,7 @@ import pickle
 import dlib
 import cv2
 import requests
-import re
+import xml.etree.ElementTree as ET
 
 # --- APP CONFIGURATION ---
 EVENT_IMAGES_DIR = "event_images"
@@ -60,20 +60,30 @@ def compare_faces(known_encodings, face_to_check, tolerance=0.45):
 @st.cache_data(ttl=600)
 def fetch_anonymous_drive_map(folder_id):
     """
-    Reads the folder index anonymously in the background without credentials,
-    mapping filenames directly to their hidden download IDs.
+    Anonymously queries the Google Drive folder via its public XML feed
+    to build a high-speed filename -> File ID mapping dictionary.
     """
     mapping = {}
     try:
-        # Request Google's embedded folder viewer framework
-        url = f"https://drive.google.com/embeddedfolderview?id={folder_id}"
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        res = requests.get(url, headers=headers)
+        # Request Google's public folder hosting feed directly
+        feed_url = f"https://docs.google.com/feeds/metadata/public/folder%3A{folder_id}"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        res = requests.get(feed_url, headers=headers)
+        
         if res.status_code == 200:
-            # Match the raw internal JavaScript array pattern: ["ID", "Filename"]
-            matches = re.findall(r'\["([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"image/', res.text)
-            for file_id, name in matches:
-                mapping[name.lower()] = file_id
+            root = ET.fromstring(res.content)
+            # Define standard atom XML namespaces used by Google Drive feeds
+            ns = {'atom': 'http://www.w3.org/2005/Atom'}
+            
+            for entry in root.findall('atom:entry', ns):
+                title_elem = entry.find('atom:title', ns)
+                id_elem = entry.find('atom:id', ns)
+                
+                if title_elem is not None and id_elem is not None:
+                    filename = title_elem.text.strip().lower()
+                    # Extract raw File ID string out of the URI structure
+                    raw_id = id_elem.text.split('/')[-1]
+                    mapping[filename] = raw_id
     except Exception:
         pass
     return mapping
@@ -86,7 +96,7 @@ st.write("Album is permanently indexed for instant, high-accuracy searches.")
 # --- SIDEBAR CREDITS & CONTROLS ---
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🛠️ Developer Profile")
-st.sidebar.sidebar_info = st.sidebar.info("🚀 Built with ❤️ by **Vishal Parmar**")
+st.sidebar.info("🚀 Built with ❤️ by **Vishal Parmar**")
 st.sidebar.markdown("---")
 
 # --- LOAD DATABASE ---
@@ -98,7 +108,7 @@ else:
     st.error(f"🚨 '{INDEX_FILE}' not found! Please check your Git repository deployment.")
     st.stop()
 
-# Silently discover matching public content URLs in background
+# Build filename map dynamically using the public metadata feed
 drive_map = fetch_anonymous_drive_map(GOOGLE_DRIVE_FOLDER_ID)
 
 # --- USER CAM SCANNING ---
@@ -149,19 +159,18 @@ if picture is not None:
                     
                     st.markdown(f"### 🖼️ Result #{idx + 1}")
                     
-                    # Convert file lookup to lowercase to protect against mismatched strings
-                    lookup_name = photo["name"].lower()
+                    lookup_name = photo["name"].lower().strip()
                     file_id = drive_map.get(lookup_name)
                     
                     if file_id:
-                        # Construct a direct streaming URL that bypasses the Google Account wall
+                        # Direct image endpoints bypassing the login walls
                         direct_image_url = f"https://drive.google.com/uc?export=view&id={file_id}"
                         direct_download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
                         
-                        # Display clear image immediately in the app interface
+                        # Display preview images directly on the dashboard page layout
                         st.image(direct_image_url, caption=photo["name"], use_container_width=True)
                         
-                        # Provide clean anonymous download layout link
+                        # Provide a clean, direct download action button link
                         st.markdown(
                             f'<a href="{direct_download_url}" download target="_blank" style="text-decoration: none;">'
                             f'<button style="background-color: #2e7d32; color: white; border: none; padding: 12px 20px; '
@@ -171,6 +180,6 @@ if picture is not None:
                             unsafe_allow_html=True
                         )
                     else:
-                        st.warning(f"📄 File `{photo['name']}` found in database, but could not be mapped to Google Drive. Check spelling in folder.")
+                        st.warning(f"📄 File `{photo['name']}` found in face-index, but could not read matching link ID directly. Verify public viewer access settings on this file inside Google Drive.")
                     
                     st.markdown("---")
