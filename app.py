@@ -11,7 +11,6 @@ import gdown
 # --- APP CONFIGURATION ---
 EVENT_IMAGES_DIR = "event_images"
 INDEX_FILE = "gallery_index.pkl"
-GOOGLE_DRIVE_FOLDER_ID = "1KaLc9BAAQJqNM7DiHjCYGELqGUbB-HQt"
 
 # Ensure local directory exists for storing matched photos on-the-fly
 if not os.path.exists(EVENT_IMAGES_DIR):
@@ -89,7 +88,8 @@ def build_permanent_index():
                 indexed_data.append({
                     "path": img_path,
                     "name": img_name,  
-                    "encodings": album_encodings
+                    "encodings": album_encodings,
+                    "drive_id": item.get("drive_id", None) # Fallback if you map IDs later
                 })
         except Exception:
             continue
@@ -144,13 +144,15 @@ if picture is not None:
                 encodings = item.get("encodings", [])
                 item_path = item.get("path", "")
                 item_name = item.get("name", os.path.basename(item_path) if item_path else "photo.jpg")
+                drive_id = item.get("drive_id", None)
                 
                 for face_encode in encodings:
                     matches = compare_faces([user_face_encoding], face_encode, tolerance=0.45)
                     if matches[0]:
                         matched_photos.append({
                             "path": item_path,
-                            "name": item_name
+                            "name": item_name,
+                            "drive_id": drive_id
                         })
                         break 
             
@@ -159,26 +161,24 @@ if picture is not None:
             else:
                 st.success(f"Found {len(matched_photos)} matching photos!")
                 
-                # Check if ANY of the matched photos are missing locally
-                missing_any = any(not os.path.exists(os.path.join(EVENT_IMAGES_DIR, p["name"])) for p in matched_photos)
-                
-                # If even one missing file is noticed, sync the folder ONCE instead of inside the loop
-                if missing_any:
-                    with st.spinner("📥 Syncing missing high-quality photos from Google Drive..."):
-                        try:
-                            url = f"https://drive.google.com/drive/folders/{GOOGLE_DRIVE_FOLDER_ID}"
-                            # Removed 'remaining_ok' parameter to fix the TypeError crash
-                            gdown.download_folder(url, output=EVENT_IMAGES_DIR, quiet=True)
-                        except Exception as download_error:
-                            st.error(f"Cloud stream interrupted while syncing folder: {download_error}")
-
-                # Render matches
-                for photo in matched_photos:
+                # --- INDIVIDUAL DOWNLOAD ON DEMAND LOOP ---
+                for idx, photo in enumerate(matched_photos):
                     if not photo["name"]:
                         continue
                         
                     local_path = os.path.join(EVENT_IMAGES_DIR, photo["name"])
                     
+                    # If the file is missing locally, we grab ONLY this file via its shared url if available
+                    if not os.path.exists(local_path):
+                        if photo.get("drive_id"):
+                            with st.spinner(f"📥 Downloading match {idx+1}/{len(matched_photos)}: {photo['name']}..."):
+                                try:
+                                    url = f"https://drive.google.com/uc?id={photo['drive_id']}"
+                                    gdown.download(url, local_path, quiet=True)
+                                except Exception as e:
+                                    st.error(f"Failed to fetch {photo['name']} directly: {e}")
+                    
+                    # Display the file if it exists locally
                     if os.path.exists(local_path):
                         st.image(local_path, use_container_width=True)
                         
@@ -187,10 +187,10 @@ if picture is not None:
                                 file_bytes = file.read()
                             
                             btn_label = f"📥 Download Original Photo ({photo['name']})"
-                            st.download_button(label=btn_label, data=file_bytes, file_name=photo["name"], mime="image/jpeg", key=local_path)
+                            st.download_button(label=btn_label, data=file_bytes, file_name=photo["name"], mime="image/jpeg", key=f"btn_{local_path}_{idx}")
                         except Exception as e:
                             st.error(f"Could not initialize download button: {e}")
                     else:
-                        st.error(f"Could not render image resource '{photo['name']}'. Please ensure it is still located in your Google Drive folder.")
+                        st.error(f"⚠️ Photo '{photo['name']}' is not available locally. Please upload it to your local '{EVENT_IMAGES_DIR}' directory.")
                     
                     st.markdown("---")
