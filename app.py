@@ -6,6 +6,7 @@ import numpy as np
 import pickle
 import dlib
 import cv2
+import urllib.parse  # Added to safely format web URLs
 
 # --- APP CONFIGURATION ---
 EVENT_IMAGES_DIR = "event_images"
@@ -116,7 +117,6 @@ if picture is not None:
             else:
                 st.success(f"🎉 Found {len(matched_photos)} matching photos!")
                 
-                # Render download redirect layout elements safely
                 for idx, photo in enumerate(matched_photos):
                     if not photo["name"]:
                         continue
@@ -124,15 +124,20 @@ if picture is not None:
                     st.markdown(f"### 🖼️ Result #{idx + 1}")
                     st.info(f"📄 **File Name:** `{photo['name']}`")
                     
-                    # Create search lookup anchor string for Google Drive
-                    drive_search_url = f"https://drive.google.com/drive/folders/{GOOGLE_DRIVE_FOLDER_ID}?q=name:\"{photo['name']}\""
+                    # Target only files inside your specific folder with the given name
+                    search_query = f"name '{photo['name']}' and '{GOOGLE_DRIVE_FOLDER_ID}' in parents"
+                    # URL-encode the string to prevent broken quotes or spaces
+                    encoded_query = urllib.parse.quote(search_query)
                     
-                    # Cleaned HTML injection layout container
+                    # Direct Search URL that immediately isolating your file
+                    drive_search_url = f"https://drive.google.com/drive/search?q={encoded_query}"
+                    
+                    # Fixed HTML Button rendering
                     st.markdown(
                         f'<a href="{drive_search_url}" target="_blank" style="text-decoration: none;">'
                         f'<button style="background-color: #2e7d32; color: white; border: none; padding: 12px 20px; '
                         f'border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px;"> '
-                        f'👁️ View & Download High-Res Original on Google Drive'
+                        f'👁️ Open & Download Original on Google Drive'
                         f'</button></a>', 
                         unsafe_allow_html=True
                     )
